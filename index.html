@@ -31,6 +31,7 @@ const CAT_E = [
   {id:'pacotes',  name:'Pacotes/Protocolos',  color:'#26C6DA', icon:'📦'},
   {id:'convenio', name:'Convênio/Plano',      color:'#1B6B3A', icon:'🏥'},
   {id:'outros_r', name:'Outras Receitas',     color:'#9E9D97', icon:'💰'},
+  {id:'outros_r', name:'Home Care',     color:'#9E9D97', icon:'🏡'},
 ];
 const CAT_S = [
   {id:'pessoal',  name:'Pessoal',             color:'#E65100', icon:'👤'},
@@ -40,6 +41,7 @@ const CAT_S = [
   {id:'mkt',      name:'Marketing/Admin',     color:'#1E88E5', icon:'📣'},
   {id:'outros_g', name:'Outros Gastos',       color:'#9E9D97', icon:'📌'},
   {id:'gasolina', name:'Gasolina',            color:'#9E9D97', icon:'⛽'},
+  {id:'gasolina', name:'Home Care',            color:'#9E9D97', icon:'🏡'},
 ];
 const ALL_CATS = [...CAT_E, ...CAT_S];
 function fmt(v){ return 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
