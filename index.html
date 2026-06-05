@@ -78,7 +78,7 @@ async function fsDel(id){
 /* ── Render ── */
 function render(){
   const ent = txList.filter(t=>t.type==='entrada').reduce((a,t)=>a+t.val,0);
-  const sai = txList.filter(t=>t.type==='saida').reduce((a,t)=>a+t.val,0);
+  const sai = txList.filter(t=>t.type==='saida'&&t.pago===true).reduce((a,t)=>a+t.val,0);
   const sal = ent-sai, mar = ent>0?Math.round((sal/ent)*100):0, tot=ent+sai;
 
   $('#mlabel').text(MONTHS[month]+' '+year);
@@ -155,7 +155,7 @@ function render(){
     $(`#${elId}`).html(rows||'<div style="font-size:12px;color:var(--n400)">Sem registros</div>');
   }
   catRows(txList.filter(t=>t.type==='entrada'), CAT_E, ent, 'cat-e');
-  catRows(txList.filter(t=>t.type==='saida'),   CAT_S, sai, 'cat-s');
+  catRows(txList.filter(t=>t.type==='saida'&&t.pago===true),   CAT_S, sai, 'cat-s');
 
   // hist pills
   const curMK=`${year}-${String(month+1).padStart(2,'0')}`;
@@ -166,7 +166,7 @@ function render(){
   }).join(''):'<span style="font-size:12px;color:var(--n400)">—</span>');
 
   // bar chart
-  const barCats=CAT_S.map(c=>({...c,total:txList.filter(t=>t.type==='saida'&&t.cat===c.id).reduce((a,t)=>a+t.val,0)})).filter(c=>c.total>0);
+  const barCats=CAT_S.map(c=>({...c,total:txList.filter(t=>t.type==='saida'&&t.pago===true&&t.cat===c.id).reduce((a,t)=>a+t.val,0)})).filter(c=>c.total>0);
   const barMax=barCats.length?Math.max(...barCats.map(c=>c.total)):1;
   $('#bar-chart').html(barCats.length?barCats.map(c=>{
     const h=Math.max(4,Math.round((c.total/barMax)*54));
