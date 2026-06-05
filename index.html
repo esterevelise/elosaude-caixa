@@ -108,10 +108,29 @@ function render(){
   } else {
     $('#tx-list').html(filtered.map(tx=>{
       const cat=ALL_CATS.find(c=>c.id===tx.cat), isE=tx.type==='entrada';
+      const pago = tx.pago===true, conciliado = tx.conciliado===true;
+      const checkboxes = isE
+        ? `<div class="tx-checks">
+            <label class="chk-label" onclick="toggleField('${tx.id}','conciliado',${conciliado},event)">
+              <span class="chk-box ${conciliado?'chk-on':''}">✓</span>
+              <span class="chk-txt">Conciliado</span>
+            </label>
+          </div>`
+        : `<div class="tx-checks">
+            <label class="chk-label" onclick="toggleField('${tx.id}','pago',${pago},event)">
+              <span class="chk-box ${pago?'chk-on chk-pago':''}">✓</span>
+              <span class="chk-txt">Pago</span>
+            </label>
+            <label class="chk-label" onclick="toggleField('${tx.id}','conciliado',${conciliado},event)">
+              <span class="chk-box ${conciliado?'chk-on':''}">✓</span>
+              <span class="chk-txt">Conciliado</span>
+            </label>
+          </div>`;
       return `<div class="tx-card">
         <div class="tx-icon tx-icon-${isE?'e':'s'}">${cat?cat.icon:(isE?'💰':'💸')}</div>
         <div><div class="tx-desc">${tx.desc}</div>
-        <div class="tx-meta">Dia ${tx.day} · <span class="badge ${isE?'bdg-tl':'bdg-or'}">${cat?cat.name:tx.cat}</span></div></div>
+        <div class="tx-meta">Dia ${tx.day} · <span class="badge ${isE?'bdg-tl':'bdg-or'}">${cat?cat.name:tx.cat}</span></div>
+        ${checkboxes}</div>
         <div class="tx-val ${isE?'tx-pos':'tx-neg'}">${isE?'+':'-'}${fmt(tx.val)}</div>
         <button class="tx-del" onclick="delTx('${tx.id}')">✕</button>
       </div>`;
@@ -180,6 +199,14 @@ window.confirmTx = async () => {
 window.delTx = async id => {
   const ok=await fsDel(id);
   if(ok){ txList=txList.filter(t=>t.id!==id); render(); }
+};
+window.toggleField = async (id, field, current, event) => {
+  event.stopPropagation();
+  const tx = txList.find(t=>t.id===id); if(!tx) return;
+  tx[field] = !current;
+  const ok = await fsSave(tx);
+  if(!ok) tx[field] = current; // revert on error
+  render();
 };
 
 $(()=>{ fsLoad(); });
@@ -293,8 +320,16 @@ body{font-family:var(--fb);background:var(--n50);color:var(--n800);font-size:14p
 .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end}
 .bar-col-bar{width:100%;border-radius:3px 3px 0 0;opacity:.85}
 .bar-col-lbl{font-size:9px;color:var(--n400);text-align:center}
+.tx-checks{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap}
+.chk-label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+.chk-box{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--n200);background:white;
+  display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:transparent;
+  transition:all .15s;flex-shrink:0}
+.chk-box.chk-on{background:var(--tl500);border-color:var(--tl500);color:white}
+.chk-box.chk-on.chk-pago{background:var(--or500);border-color:var(--or500);color:white}
+.chk-txt{font-size:11px;font-weight:500;color:var(--n400)}
+.chk-label:hover .chk-box:not(.chk-on){border-color:var(--tl400);background:var(--tl50)}
 </style>
-</head>
 <body>
 
 <nav class="nav">
