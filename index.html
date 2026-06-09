@@ -23,7 +23,7 @@ const db = getFirestore(initializeApp(cfg));
 /* ── State ── */
 const now = new Date();
 let year = now.getFullYear(), month = now.getMonth();
-let txList = [], histKeys = [], activeTab = 'all', modalType = null, activeCat = null, currentPage = 1;
+let txList = [], histKeys = [], activeTab = 'all', modalType = null, activeCat = null, currentPage = 1, dateFrom = null, dateTo = null;
 const PAGE_SIZE = 50;
 
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -103,6 +103,8 @@ function render(){
   if(activeTab==='entrada') filtered=txList.filter(t=>t.type==='entrada');
   if(activeTab==='saida')   filtered=txList.filter(t=>t.type==='saida');
   if(activeCat) filtered=filtered.filter(t=>t.cat===activeCat);
+  if(dateFrom!==null) filtered=filtered.filter(t=>t.day>=dateFrom);
+  if(dateTo!==null)   filtered=filtered.filter(t=>t.day<=dateTo);
   filtered.sort((a,b)=>b.day-a.day);
 
   // category filter pills
@@ -123,7 +125,10 @@ function render(){
   if(currentPage>totalPages) currentPage=1;
   const paginated = filtered.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
 
-  $('#tx-count').text(totalItems+' lançamento'+(totalItems!==1?'s':'')+(activeCat?' (filtrado)':''));
+  const hasFilter = activeCat || dateFrom!==null || dateTo!==null;
+  $('#tx-count').text(totalItems+' lançamento'+(totalItems!==1?'s':'')+(hasFilter?' (filtrado)':''));
+  // update clear button visibility
+  $('#date-clear').toggle(!!(dateFrom!==null||dateTo!==null));
   if(!paginated.length){
     $('#tx-list').html(`<div class="empty"><div style="font-size:32px;margin-bottom:12px">💊</div><div style="font-size:13px">Nenhum lançamento.<br>Use os botões acima para registrar.</div></div>`);
   } else {
@@ -214,9 +219,14 @@ function render(){
 }
 
 /* ── Global actions ── */
-window.changeMonth = d => { let m=month+d,y=year; if(m<0){m=11;y--;} if(m>11){m=0;y++;} year=y;month=m; activeTab='all'; activeCat=null; currentPage=1; fsLoad(); };
-window.goMonth = (y,m) => { year=y;month=m;activeTab='all'; activeCat=null; currentPage=1; fsLoad(); };
+window.changeMonth = d => { let m=month+d,y=year; if(m<0){m=11;y--;} if(m>11){m=0;y++;} year=y;month=m; activeTab='all'; activeCat=null; currentPage=1; dateFrom=null; dateTo=null; $('#f-from').val(''); $('#f-to').val(''); fsLoad(); };
+window.goMonth = (y,m) => { year=y;month=m;activeTab='all'; activeCat=null; currentPage=1; dateFrom=null; dateTo=null; $('#f-from').val(''); $('#f-to').val(''); fsLoad(); };
 window.setTab = t => { activeTab=t; activeCat=null; currentPage=1; $('.tab').removeClass('active'); $(`.tab[data-t="${t}"]`).addClass('active'); render(); };
+window.applyDateFilter = () => {
+  const f=parseInt($('#f-from').val()), t=parseInt($('#f-to').val());
+  dateFrom = isNaN(f)?null:f; dateTo = isNaN(t)?null:t; currentPage=1; render();
+};
+window.clearDateFilter = () => { dateFrom=null; dateTo=null; $('#f-from').val(''); $('#f-to').val(''); currentPage=1; render(); };
 window.setCat = c => { activeCat=c; currentPage=1; render(); };
 window.goPage = p => { currentPage=p; render(); window.scrollTo({top:0,behavior:'smooth'}); };
 window.openModal = t => {
@@ -385,6 +395,16 @@ body{font-family:var(--fb);background:var(--n50);color:var(--n800);font-size:14p
 .pg-btn-dis{opacity:.4;cursor:not-allowed}
 .pg-dots{font-size:13px;color:var(--n400);padding:0 4px}
 .pg-info{font-size:11px;color:var(--n400);margin-left:8px}
+.date-filter-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.date-filter-group{display:flex;align-items:center;gap:6px}
+.date-label{font-size:11px;font-weight:600;color:var(--n400);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.date-input{width:64px;border:1.5px solid var(--n200);border-radius:var(--rmd);padding:6px 10px;
+  font-family:var(--fb);font-size:13px;color:var(--n800);background:white;outline:none;text-align:center;transition:border-color .15s}
+.date-input:focus{border-color:var(--tl400)}
+.date-sep{font-size:13px;color:var(--n400);font-weight:500}
+.date-clear-btn{font-family:var(--fb);font-size:12px;font-weight:600;padding:6px 13px;border-radius:var(--rfl);
+  border:1.5px solid var(--dbg);background:var(--dbg);color:var(--dtx);cursor:pointer;transition:all .15s}
+.date-clear-btn:hover{background:var(--dtx);color:white}
 </style>
 <body>
 
@@ -423,6 +443,18 @@ body{font-family:var(--fb);background:var(--n50);color:var(--n800);font-size:14p
         <button class="tab"        data-t="saida"   onclick="setTab('saida')">Saídas</button>
       </div>
       <span id="tx-count" class="tx-count">0 lançamentos</span>
+    </div>
+    <div class="date-filter-row">
+      <div class="date-filter-group">
+        <label class="date-label">Dia de</label>
+        <input id="f-from" class="date-input" type="number" min="1" max="31" placeholder="1" onchange="applyDateFilter()"/>
+      </div>
+      <span class="date-sep">até</span>
+      <div class="date-filter-group">
+        <label class="date-label">Dia</label>
+        <input id="f-to" class="date-input" type="number" min="1" max="31" placeholder="31" onchange="applyDateFilter()"/>
+      </div>
+      <button id="date-clear" class="date-clear-btn" onclick="clearDateFilter()" style="display:none">✕ Limpar</button>
     </div>
     <div id="cat-filter-row"></div>
     <div id="tx-list" class="tx-list"></div>
