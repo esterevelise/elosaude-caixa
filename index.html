@@ -23,7 +23,8 @@ const db = getFirestore(initializeApp(cfg));
 /* ── State ── */
 const now = new Date();
 let year = now.getFullYear(), month = now.getMonth();
-let txList = [], histKeys = [], activeTab = 'all', modalType = null;
+let txList = [], histKeys = [], activeTab = 'all', modalType = null, activeCat = null, currentPage = 1;
+const PAGE_SIZE = 50;
 
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const CAT_E = [
@@ -101,12 +102,32 @@ function render(){
   let filtered=[...txList];
   if(activeTab==='entrada') filtered=txList.filter(t=>t.type==='entrada');
   if(activeTab==='saida')   filtered=txList.filter(t=>t.type==='saida');
+  if(activeCat) filtered=filtered.filter(t=>t.cat===activeCat);
   filtered.sort((a,b)=>b.day-a.day);
-  $('#tx-count').text(filtered.length+' lançamento'+(filtered.length!==1?'s':''));
-  if(!filtered.length){
+
+  // category filter pills
+  const availCats = activeTab==='entrada' ? CAT_E : activeTab==='saida' ? CAT_S : [];
+  const usedCatIds = [...new Set(filtered.map(t=>t.cat))];
+  const visibleCats = availCats.filter(c=>usedCatIds.includes(c.id));
+  let catPillsHtml = '';
+  if(visibleCats.length>0){
+    catPillsHtml = `<div class="cat-pills" id="cat-pills">
+      <span class="cat-pill${!activeCat?' cat-pill-active':''}" onclick="setCat(null)">Todas</span>
+      ${visibleCats.map(c=>`<span class="cat-pill${activeCat===c.id?' cat-pill-active':''}" onclick="setCat('${c.id}')">${c.icon} ${c.name}</span>`).join('')}
+    </div>`;
+  }
+  $('#cat-filter-row').html(catPillsHtml);
+
+  const totalItems = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems/PAGE_SIZE));
+  if(currentPage>totalPages) currentPage=1;
+  const paginated = filtered.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+
+  $('#tx-count').text(totalItems+' lançamento'+(totalItems!==1?'s':'')+(activeCat?' (filtrado)':''));
+  if(!paginated.length){
     $('#tx-list').html(`<div class="empty"><div style="font-size:32px;margin-bottom:12px">💊</div><div style="font-size:13px">Nenhum lançamento.<br>Use os botões acima para registrar.</div></div>`);
   } else {
-    $('#tx-list').html(filtered.map(tx=>{
+    const cards = paginated.map(tx=>{
       const cat=ALL_CATS.find(c=>c.id===tx.cat), isE=tx.type==='entrada';
       const pago = tx.pago===true, conciliado = tx.conciliado===true;
       const checkboxes = isE
@@ -134,7 +155,25 @@ function render(){
         <div class="tx-val ${isE?'tx-pos':'tx-neg'}">${isE?'+':'-'}${fmt(tx.val)}</div>
         <button class="tx-del" onclick="delTx('${tx.id}')">✕</button>
       </div>`;
-    }).join(''));
+    }).join('');
+
+    // pagination controls
+    let pgHtml = '';
+    if(totalPages>1){
+      const prev = currentPage>1?`<button class="pg-btn" onclick="goPage(${currentPage-1})">‹ Anterior</button>`:`<button class="pg-btn pg-btn-dis" disabled>‹ Anterior</button>`;
+      const next = currentPage<totalPages?`<button class="pg-btn" onclick="goPage(${currentPage+1})">Próxima ›</button>`:`<button class="pg-btn pg-btn-dis" disabled>Próxima ›</button>`;
+      const dots = (cur,tot)=>{
+        let pages=[];
+        for(let i=1;i<=tot;i++){
+          if(i===1||i===tot||Math.abs(i-cur)<=1) pages.push(i);
+          else if(pages[pages.length-1]!=='…') pages.push('…');
+        }
+        return pages.map(p=>p==='…'?`<span class="pg-dots">…</span>`:`<button class="pg-btn${p===cur?' pg-btn-cur':''}" onclick="goPage(${p})">${p}</button>`).join('');
+      };
+      pgHtml = `<div class="pagination">${prev}${dots(currentPage,totalPages)}${next}<span class="pg-info">Página ${currentPage} de ${totalPages} · ${totalItems} itens</span></div>`;
+    }
+
+    $('#tx-list').html(cards+pgHtml);
   }
 
   // aside metrics
@@ -175,9 +214,11 @@ function render(){
 }
 
 /* ── Global actions ── */
-window.changeMonth = d => { let m=month+d,y=year; if(m<0){m=11;y--;} if(m>11){m=0;y++;} year=y;month=m; activeTab='all'; fsLoad(); };
-window.goMonth = (y,m) => { year=y;month=m;activeTab='all'; fsLoad(); };
-window.setTab = t => { activeTab=t; $('.tab').removeClass('active'); $(`.tab[data-t="${t}"]`).addClass('active'); render(); };
+window.changeMonth = d => { let m=month+d,y=year; if(m<0){m=11;y--;} if(m>11){m=0;y++;} year=y;month=m; activeTab='all'; activeCat=null; currentPage=1; fsLoad(); };
+window.goMonth = (y,m) => { year=y;month=m;activeTab='all'; activeCat=null; currentPage=1; fsLoad(); };
+window.setTab = t => { activeTab=t; activeCat=null; currentPage=1; $('.tab').removeClass('active'); $(`.tab[data-t="${t}"]`).addClass('active'); render(); };
+window.setCat = c => { activeCat=c; currentPage=1; render(); };
+window.goPage = p => { currentPage=p; render(); window.scrollTo({top:0,behavior:'smooth'}); };
 window.openModal = t => {
   modalType=t;
   $('#modal-title').attr('class','modal-title modal-title-'+t).text(t==='entrada'?'+ Registrar Entrada':'− Registrar Saída');
@@ -329,6 +370,21 @@ body{font-family:var(--fb);background:var(--n50);color:var(--n800);font-size:14p
 .chk-box.chk-on.chk-pago{background:var(--or500);border-color:var(--or500);color:white}
 .chk-txt{font-size:11px;font-weight:500;color:var(--n400)}
 .chk-label:hover .chk-box:not(.chk-on){border-color:var(--tl400);background:var(--tl50)}
+.cat-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.cat-pill{font-size:12px;font-weight:600;padding:5px 13px;border-radius:var(--rfl);border:1.5px solid var(--n200);
+  background:white;cursor:pointer;transition:all .15s;color:var(--n600)}
+.cat-pill:hover{border-color:var(--tl400);color:var(--tl600);background:var(--tl50)}
+.cat-pill-active{background:var(--tl500);border-color:var(--tl500);color:white}
+.cat-pill-active:hover{background:var(--tl600);border-color:var(--tl600);color:white}
+.pagination{display:flex;align-items:center;gap:6px;margin-top:16px;flex-wrap:wrap}
+.pg-btn{font-family:var(--fb);font-size:13px;font-weight:600;padding:6px 13px;border-radius:var(--rfl);
+  border:1.5px solid var(--n200);background:white;cursor:pointer;color:var(--n600);transition:all .15s}
+.pg-btn:hover:not(:disabled){border-color:var(--or400);color:var(--or500);background:var(--or50)}
+.pg-btn-cur{background:var(--or500);border-color:var(--or500);color:white}
+.pg-btn-cur:hover{background:var(--or600)!important;border-color:var(--or600)!important;color:white!important}
+.pg-btn-dis{opacity:.4;cursor:not-allowed}
+.pg-dots{font-size:13px;color:var(--n400);padding:0 4px}
+.pg-info{font-size:11px;color:var(--n400);margin-left:8px}
 </style>
 <body>
 
@@ -368,6 +424,7 @@ body{font-family:var(--fb);background:var(--n50);color:var(--n800);font-size:14p
       </div>
       <span id="tx-count" class="tx-count">0 lançamentos</span>
     </div>
+    <div id="cat-filter-row"></div>
     <div id="tx-list" class="tx-list"></div>
   </div>
 
