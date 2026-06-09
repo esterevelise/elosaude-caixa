@@ -44,7 +44,7 @@ const CAT_S = [
   {id:'gasolina', name:'Home Care',            color:'#9E9D97', icon:'🏡'},
 ];
 const ALL_CATS = [...CAT_E, ...CAT_S];
-function fmt(v){ return 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmt(v){ return 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2); }
 function setBadge(s){ const b=$('#badge'); b.attr('class','save-badge sb-'+s); b.text({saved:'☁ Salvo na nuvem',saving:'⏳ Salvando...',error:'✕ Erro',loading:'⏳ Carregando...'}[s]); }
 
